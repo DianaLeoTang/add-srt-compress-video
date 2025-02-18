@@ -77,4 +77,4 @@ source source/main.sh
 compress_video 20241019/input.mp4 20241019/output.mp4 23 medium 1280:720 30 128k
 
 ## 批量压缩视频命令行语句
-source ./source/BatchModification.sh ./20241019 ./xq-shantou 23 medium 2560:1440 30 128k
+source ./source/BatchModification.sh ./videos ./compression 23 medium 2560:1440 30 128k
