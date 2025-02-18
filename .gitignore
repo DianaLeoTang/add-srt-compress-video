@@ -1,0 +1,16 @@
+# 忽略音视频文件
+*.mp3
+*.mp4
+*.wav
+*.avi
+*.mov
+*.flv
+*.wmv
+*.srt
+videos/*
+
+
+*.DS_Store
+# 忽略models文件夹下的所有文件
+models/*
+
