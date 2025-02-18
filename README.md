@@ -6,7 +6,7 @@
  * @FilePath: /add-srt-compress-video/README.md
 -->
 # add-srt-compress-video
-给视频添加字幕，压缩视频体积
+Add subtitles to the video and compress the video volume
 
 # Automatic subtitles in your videos
 
