@@ -1,7 +1,7 @@
 <!--
  * @Author: Diana Tang
  * @Date: 2025-02-18 10:03:11
- * @LastEditors: Diana Tang
+ * @LastEditors: DianaLeoTang wangyaotang0228@gmail.com
  * @Description: some description
  * @FilePath: /add-srt-compress-video/README-cn.md
 -->
@@ -77,4 +77,13 @@ source source/main.sh
 compress_video 20241019/input.mp4 20241019/output.mp4 23 medium 1280:720 30 128k
 
 ## 批量压缩视频命令行语句
+C:/Users/tangw/AppData/Roaming/Python/Python312/Script
+C:\Users\tangw\ffmpeg-2025-02-17-git-b92577405b-full_build\bin
+初次运行需要授权
+chmod +x ./source/BatchModification.sh
+
 source ./source/BatchModification.sh ./videos ./compression 23 medium 2560:1440 30 128k
+
+
+
+source ./Batch.sh ./videos ./compression 23 medium 2560:1440 30 128k
