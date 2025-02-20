@@ -87,3 +87,8 @@ source ./source/BatchModification.sh ./videos ./compression 23 medium 2560:1440 
 
 
 source ./Batch.sh ./videos ./compression 23 medium 2560:1440 30 128k
+
+source ./start.sh ./newv ./compression 23 medium 2560:1440 30 128k
+
+
+source ./s1.sh ./v2 ./compression 23 medium 2560:1440 30 128k
