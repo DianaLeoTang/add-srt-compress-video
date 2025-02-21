@@ -8,39 +8,53 @@ jieba.setLogLevel(logging.INFO)
 
 class SRTToMindmap:
     def __init__(self):
-        # 扩大关键词集合
-        self.important_words = set([
-            '首先', '其次', '然后', '最后', '另外', '总之', '因此', '所以',
-            '这节课', '这一节', '我们来', '咱们来', '接下来', '下面', 
-            '第一', '第二', '第三', '第四', '重点', '主要', '关键',
-            '讲解', '介绍', '说明', '演示', '学习', '理解'
-        ])
+        # 扩充主题相关词汇
+        self.topic_words = {
+            'Chrome浏览器渲染': [
+                '浏览器', '渲染', 'DOM', 'CSS', '排版', '处理', '性能', '显卡',
+                '渲染过程', '解析', '绘制', '布局', 'HTML', '样式', '脚本',
+                '处理器', '硬件', '加速', '优化', 'GPU', '显示'
+            ],
+            'Webpack': [
+                'webpack', '打包', '构建', '配置', '插件', 'loader', '编译',
+                '入口', '出口', '模块', '依赖', '优化', '压缩', '项目', '工程化',
+                '脚手架', '开发环境', '生产环境'
+            ],
+            'Jenkins': [
+                'Jenkins', '构建', '部署', '集成', '自动化', '流水线', '任务',
+                '项目', '配置', '插件', '权限', '节点', '构建历史', '触发器',
+                '参数化', '凭据'
+            ]
+        }
+        
+        self.important_words = {
+            '时序词': ['首先', '其次', '然后', '最后', '接着', '第一', '第二', '第三'],
+            '总结词': ['总之', '因此', '所以', '总的来说', '总结'],
+            '转折词': ['但是', '不过', '然而', '相反', '另外'],
+            '强调词': ['重点', '核心', '关键', '主要', '特别'],
+            '解释词': ['就是', '也就是说', '换句话说', '即', '例如']
+        }
 
     def convert_file(self, file_path):
         """转换单个SRT文件"""
         try:
-            # 1. 读取文件
-            print("\n=== 开始读取文件 ===")
+            # 从文件名中提取主题
+            filename = os.path.basename(file_path)
+            main_topic = self._extract_topic_from_filename(filename)
+            print(f"\n主题: {main_topic}")
+            
+            # 读取并清理内容
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            print(f"原始内容长度: {len(content)}")
+            sentences = self._clean_content(content)
             
-            # 2. 清理内容
-            print("\n=== 开始清理内容 ===")
-            cleaned_content = self._clean_content(content)
-            print(f"清理后内容长度: {len(cleaned_content)}")
+            # 提取主题相关内容
+            topics = self._extract_topics(sentences, main_topic)
             
-            # 3. 提取主题
-            print("\n=== 开始提取主题 ===")
-            topics = self._extract_topics(cleaned_content)
-            print(f"提取到主题数量: {len(topics)}")
+            # 生成markdown
+            markdown = self._generate_markdown(topics, main_topic)
             
-            # 4. 生成markdown
-            print("\n=== 开始生成Markdown ===")
-            markdown = self._generate_markdown(topics)
-            
-            # 5. 保存文件
-            print("\n=== 开始保存文件 ===")
+            # 保存文件
             output_path = os.path.splitext(file_path)[0] + '.md'
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(markdown)
@@ -49,9 +63,18 @@ class SRTToMindmap:
         except Exception as e:
             print(f"处理文件出错: {e}")
 
+    def _extract_topic_from_filename(self, filename):
+        """从文件名中提取主题"""
+        # 移除扩展名和序号
+        name = os.path.splitext(filename)[0]
+        name = re.sub(r'^\[\d+\.\d+\]--', '', name)
+        name = name.replace('【实战】', '')
+        name = name.replace('内幕', '')
+        return name.strip()
+
     def _clean_content(self, content):
         """清理内容"""
-        # 先按行分割
+        # 按行分割
         lines = content.split('\n')
         valid_lines = []
         
@@ -61,67 +84,74 @@ class SRTToMindmap:
             # 跳过无效行
             if not line or line.isdigit() or '-->' in line:
                 continue
-                
-            # 跳过纯英文行和过短的行
-            if re.match(r'^[a-zA-Z\s,\.]+$', line) or len(line) < 5:
+            # 跳过纯英文行
+            if re.match(r'^[a-zA-Z\s,\.]+$', line):
                 continue
                 
             valid_lines.append(line)
         
-        # 合并行并按句号分割
-        text = ''.join(valid_lines)
-        sentences = re.split(r'[。！？\n]', text)
-        
-        # 过滤无效句子
-        valid_sentences = []
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if sentence and len(sentence) >= 5:
-                valid_sentences.append(sentence)
-        
-        return valid_sentences
+        # 合并并分句
+        text = ' '.join(valid_lines)
+        sentences = re.split(r'[。！？]', text)
+        return [s.strip() for s in sentences if len(s.strip()) > 5]
 
-    def _extract_topics(self, sentences):
-        """提取主题"""
+    def _extract_topics(self, sentences, main_topic):
+        """提取主题相关内容"""
         topics = defaultdict(list)
-        current_topic = "概述"
-        found_first_topic = False
+        current_section = "概述"
+        
+        # 获取主题相关词汇
+        topic_keywords = []
+        for topic, keywords in self.topic_words.items():
+            if any(word in main_topic for word in keywords):
+                topic_keywords.extend(keywords)
+        
+        # 如果没有找到相关词汇，使用文件名中的关键词
+        if not topic_keywords:
+            topic_keywords = [word for word in jieba.lcut(main_topic) if len(word) > 1]
         
         for sentence in sentences:
-            # 检查是否包含关键词
+            # 分词
             words = jieba.lcut(sentence)
-            contains_keyword = any(word in self.important_words for word in words)
             
-            # 第一个包含关键词的句子作为标题
-            if not found_first_topic and contains_keyword:
-                current_topic = sentence
-                found_first_topic = True
-            # 之后的关键词句子作为主题
-            elif contains_keyword and len(sentence) >= 10:
-                current_topic = sentence
-            # 其他句子作为子主题
-            elif len(sentence) >= 5:
-                topics[current_topic].append(sentence)
+            # 检查是否包含主题相关词汇
+            is_relevant = any(keyword in sentence for keyword in topic_keywords)
+            
+            # 检查是否是章节标题
+            is_section = False
+            for category, markers in self.important_words.items():
+                if any(marker in sentence for marker in markers):
+                    if len(sentence) > 10:  # 避免太短的句子作为标题
+                        current_section = sentence
+                        is_section = True
+                        break
+            
+            # 如果是相关内容且不是章节标题，添加为子主题
+            if is_relevant and not is_section:
+                topics[current_section].append(sentence)
         
-        # 如果没有找到任何主题，使用默认主题
+        # 如果没有找到任何内容，添加所有主题相关的句子
         if not topics:
-            topics["主要内容"] = [s for s in sentences if len(s) >= 5]
+            topics["主要内容"] = [s for s in sentences if any(keyword in s for keyword in topic_keywords)]
             
         return topics
 
-    def _generate_markdown(self, topics):
+    def _generate_markdown(self, topics, main_topic):
         """生成markdown"""
-        lines = ["# 内容大纲\n"]
+        lines = [f"# {main_topic}\n"]
         
+        # 如果没有内容，添加提示
+        if not topics:
+            lines.append("\n> 未找到相关主题内容\n")
+            return ''.join(lines)
+        
+        # 添加主题和子主题
         for topic, subtopics in topics.items():
-            # 添加主题
-            lines.append(f"\n## {topic}\n")
-            
-            # 过滤并添加子主题
-            filtered_subtopics = []
-            for subtopic in subtopics:
-                if len(subtopic) >= 5 and subtopic not in filtered_subtopics:
-                    filtered_subtopics.append(subtopic)
+            if subtopics:  # 只添加有内容的主题
+                lines.append(f"\n## {topic}\n")
+                # 去重并添加子主题
+                unique_subtopics = list(set(subtopics))
+                for subtopic in unique_subtopics:
                     lines.append(f"- {subtopic}\n")
         
         return ''.join(lines)
