@@ -1,36 +1,50 @@
 '''
 Author: Diana Tang
-Date: 2025-02-21 23:29:05
+Date: 2025-02-21 23:41:46
 LastEditors: Diana Tang
 Description: some description
-FilePath: /Add-SRT-To-Video/addSrtToMp4.py
+FilePath: /add-srt-compress-video/addSrtToMp4.py
 '''
 import os
-import subprocess
+from moviepy import VideoFileClip
+import speech_recognition as sr
 
-# 设置文件夹路径
-video_folder = "./videos"
-output_folder = "./srt-files"
+def extract_audio_from_video(video_path, audio_path):
+    video = VideoFileClip(video_path)
+    video.audio.write_audiofile(audio_path)
 
-# 创建输出文件夹
-if not os.path.exists(output_folder):
-    os.makedirs(output_folder)
+def generate_srt_from_audio(audio_path, srt_path):
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(audio_path) as source:
+        audio = recognizer.record(source)
+    try:
+        # 识别音频中的文字
+        text = recognizer.recognize_google(audio, language="zh-CN")
+        # 创建 SRT 文件
+        with open(srt_path, "w", encoding="utf-8") as f:
+            # 简单地将识别到的文本按行分割作为示例
+            lines = text.split(". ")
+            for i, line in enumerate(lines):
+                start_time = i * 3  # 假设每段文本持续3秒
+                end_time = start_time + 3
+                f.write(f"{i+1}\n")
+                f.write(f"{start_time // 60:02d}:{start_time % 60:02d},000 --> {end_time // 60:02d}:{end_time % 60:02d},000\n")
+                f.write(f"{line.strip()}\n\n")
+    except Exception as e:
+        print(f"错误: {e}")
 
-# 遍历文件夹中的MP4文件
-for filename in os.listdir(video_folder):
-    if filename.endswith(".mp4"):
-        video_path = os.path.join(video_folder, filename)
-        srt_filename = os.path.splitext(filename)[0] + ".srt"
-        srt_path = os.path.join(output_folder, srt_filename)
+def process_mp4_files_in_folder(folder_path):
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".mp4"):
+            video_path = os.path.join(folder_path, filename)
+            audio_path = video_path.replace(".mp4", ".wav")
+            srt_path = video_path.replace(".mp4", ".srt")
+            
+            # 提取音频并生成 SRT 文件
+            extract_audio_from_video(video_path, audio_path)
+            generate_srt_from_audio(audio_path, srt_path)
+            print(f"已处理: {filename}")
 
-        # 提取音频（可选）
-        audio_path = os.path.join(output_folder, "temp_audio.wav")
-        subprocess.run(f"ffmpeg -i {video_path} -vn -acodec pcm_s16le -ar 16000 {audio_path}", shell=True)
-
-        # 调用语音识别工具生成字幕（以Vosk为例）
-        subprocess.run(f"vosk-transcriber -i {audio_path} -o {srt_path}", shell=True)
-
-        # 删除临时音频文件
-        os.remove(audio_path)
-
-        print(f"Generated SRT for {filename}")
+# 输入文件夹路径
+folder_path = "./videos"
+process_mp4_files_in_folder(folder_path)
