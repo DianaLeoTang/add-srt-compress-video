@@ -20,19 +20,52 @@ class SRTToMindmap:
             '第一', '第二', '第三', '第四', '第五', '重点', '核心', '主要', '关键',
             '总结', '注意', '特别', '特点', '步骤', '方法', '目的', '原因', '结果'
         ])
-        
-    def read_srt(self, filepath):
-        """读取SRT文件内容"""
-        print(f"正在读取文件: {filepath}")
+
+    def convert_directory(self, directory_path):
+        """处理目录下的所有SRT文件"""
+        # 确保目录路径存在
+        if not os.path.isdir(directory_path):
+            print(f"错误: {directory_path} 不是有效的目录")
+            return
+            
+        # 遍历目录中的所有文件
+        for filename in os.listdir(directory_path):
+            if filename.endswith('.srt'):
+                file_path = os.path.join(directory_path, filename)
+                self.convert_file(file_path)
+
+    def convert_file(self, file_path):
+        """转换单个SRT文件"""
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            # 读取文件内容
+            print(f"\n处理文件: {file_path}")
+            with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            print(f"文件读取成功，内容长度: {len(content)} 字符")
-            return content
+                
+            # 清理内容
+            cleaned_content = self.clean_srt(content)
+            if not cleaned_content:
+                print(f"警告: {file_path} 清理后内容为空")
+                return
+                
+            # 提取主题
+            topics = self._extract_chinese_topics(cleaned_content)
+            
+            # 生成markdown
+            markdown = self.generate_markdown(topics)
+            
+            # 生成输出文件路径
+            output_path = os.path.splitext(file_path)[0] + '.md'
+            
+            # 保存文件
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(markdown)
+                
+            print(f"成功: 已生成 {output_path}")
+            
         except Exception as e:
-            print(f"读取文件出错: {e}")
-            return None
-    
+            print(f"错误: 处理 {file_path} 时出错 - {e}")
+
     def clean_srt(self, content):
         """清理SRT文件格式,只保留对话内容"""
         if not content:
@@ -47,9 +80,7 @@ class SRTToMindmap:
         # 移除特殊字符
         content = re.sub(r'[^\w\s。！？，：；（）\u4e00-\u9fff]', '', content)
         
-        cleaned_content = content.strip()
-        print(f"清理后的内容长度: {len(cleaned_content)} 字符")
-        return cleaned_content
+        return content.strip()
     
     def _extract_chinese_topics(self, text):
         """提取中文主题"""
@@ -58,7 +89,6 @@ class SRTToMindmap:
         
         # 分句
         sentences = re.split('[。！？]', text)
-        print(f"分句数量: {len(sentences)}")
         
         for sentence in sentences:
             if not sentence.strip():
@@ -81,7 +111,6 @@ class SRTToMindmap:
                 if cleaned_sentence:
                     topics[current_topic].append(cleaned_sentence)
         
-        print(f"提取的主题数量: {len(topics)}")
         return topics
     
     def generate_markdown(self, topics):
@@ -104,90 +133,15 @@ class SRTToMindmap:
                     markdown.append(f"{indent}- {subtopic}\n")
             
             markdown.append("")  # 添加空行
-        
-        result = "".join(markdown)
-        print(f"生成的Markdown内容长度: {len(result)} 字符")
-        return result
-
-    def convert(self, srt_file):
-        """转换SRT文件为思维导图"""
-        # 获取绝对路径
-        srt_file = os.path.abspath(srt_file)
-        print(f"\n开始处理文件: {srt_file}")
-        
-        # 验证文件是否存在
-        if not os.path.exists(srt_file):
-            print(f"错误: 文件 {srt_file} 不存在")
-            return False
             
-        # 获取文件名（不含扩展名）和输出路径
-        file_base = os.path.splitext(srt_file)[0]
-        output_file = f"{file_base}.md"
-        print(f"输出文件路径: {output_file}")
-        
-        # 读取和清理内容
-        content = self.read_srt(srt_file)
-        if not content:
-            print("错误: 文件读取失败")
-            return False
-            
-        cleaned_content = self.clean_srt(content)
-        if not cleaned_content:
-            print("错误: 文件内容为空")
-            return False
-        
-        # 提取主题
-        topics = self._extract_chinese_topics(cleaned_content)
-        
-        # 生成markdown
-        markdown = self.generate_markdown(topics)
-        
-        # 保存结果
-        try:
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(markdown)
-            print(f"成功: 思维导图已保存到 {output_file}")
-            return True
-        except Exception as e:
-            print(f"错误: 保存文件失败 - {e}")
-            return False
+        return "".join(markdown)
 
-def process_directory(directory_path, language='zh'):
-    """处理指定目录下的所有SRT文件"""
-    # 获取绝对路径
-    directory_path = os.path.abspath(directory_path)
-    print(f"\n开始处理目录: {directory_path}")
-    
-    if not os.path.exists(directory_path):
-        print(f"错误: 目录 {directory_path} 不存在")
-        return []
-        
-    converter = SRTToMindmap(language=language)
-    processed_files = []
-    
-    # 遍历目录下的所有文件
-    for filename in os.listdir(directory_path):
-        if filename.lower().endswith('.srt'):
-            file_path = os.path.join(directory_path, filename)
-            success = converter.convert(file_path)
-            if success:
-                processed_files.append(filename)
-    
-    return processed_files
-
-# 使用示例
 if __name__ == "__main__":
-    # 获取当前Python文件所在目录的绝对路径
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # 1. 处理单个文件
-    srt_file = input('/[4.2]--Chrome浏览器渲染机制内幕.srt' )
-    srt_path = os.path.join(current_dir, srt_file)
-    converter = SRTToMindmap(language='zh')
-    converter.convert(srt_file)
+    # 获取当前脚本所在目录
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # 2. 或者处理整个目录
-    # directory = input("请输入SRT文件所在目录路径: ")
-    # processed_files = process_directory(directory)
-    # print(f"\n处理完成的文件:")
-    # for file in processed_files:
-    #     print(f"- {file}")
+    # 创建转换器实例
+    converter = SRTToMindmap(language='zh')
+    
+    # 处理目录下的所有SRT文件
+    converter.convert_directory(script_dir)
